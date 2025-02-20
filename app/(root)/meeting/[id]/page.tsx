@@ -1,70 +1,40 @@
 'use client';
 
-import Loader from '@/components/ui/Loader';
-import MeetingRoom from '@/components/ui/MeetingRoom';
-import MeetingSetup from '@/components/ui/MeetingSetup';
-import { useGetCallById } from '@/hooks/useGetCallById';
-import { useUser } from '@clerk/nextjs';
-import { StreamCall, StreamTheme } from '@stream-io/video-react-sdk';
-import React, { useEffect, useState } from 'react';
-import { toast } from 'react-toastify';
-
-// Define the props inline with Next.js expectations
-interface MeetingProps {
-  params: { id: string };
-}
-
-// Ensure proper type alignment
-const Meeting: React.FC<MeetingProps> = ({ params }) => {
-  const { user, isLoaded } = useUser();
-
-  console.log(user); // Avoid unused variable warning
-
+import Loader from '@/components/ui/Loader'; import MeetingRoom from '@/components/ui/MeetingRoom'; import MeetingSetup from '@/components/ui/MeetingSetup'; import { useGetCallById } from '@/hooks/useGetCallById'; import { useUser } from '@clerk/nextjs'; import { StreamCall, StreamTheme } from '@stream-io/video-react-sdk';import { useParams } from 'next/navigation';
+ import React, { useState } from 'react';  
+const MeetingPage = () => {
+  const { id } = useParams();
+  const { isLoaded, user } = useUser();
+  const { call, isCallLoading } = useGetCallById(id as string);
   const [isSetupComplete, setIsSetupComplete] = useState(false);
-  const { call, isCallLoading } = useGetCallById(params.id);
-  const [callError, setCallError] = useState<Error | null>(null);
 
-  useEffect(() => {
-    if (!call && !isCallLoading) {
-      setCallError(new Error('Failed to load call'));
-    }
-  }, [call, isCallLoading]);
+  if (!isLoaded || isCallLoading) return <Loader />;
 
-  useEffect(() => {
-    const setupMeeting = async () => {
-      try {
-        const { id } = params;
-        await navigator.clipboard.writeText(id);
-        toast('Link Copied');
-        setIsSetupComplete(true);
-      } catch (error) {
-        toast.error('Failed to copy meeting link');
-        console.error('Error setting up meeting:', error);
-      }
-    };
+  if (!call) return (
+    <p className="text-center text-3xl font-bold text-white">
+      Call Not Found
+    </p>
+  );
 
-    setupMeeting();
-  }, [params]);
+  // get more info about custom call type:  https://getstream.io/video/docs/react/guides/configuring-call-types/
+  const notAllowed = call.type === 'invited' && (!user || !call.state.members.find((m) => m.user.id === user.id));
 
-  if (!isLoaded || isCallLoading || !isSetupComplete) return <Loader />;
-
-  if (callError) {
-    return <div>Error loading call: {callError.message}</div>;
-  }
+  if (notAllowed) return <div className="alert">You are not allowed to join this meeting</div>;
 
   return (
     <main className="h-screen w-full">
       <StreamCall call={call}>
         <StreamTheme>
-          {!isSetupComplete ? (
-            <MeetingSetup setisSetupComplete={setIsSetupComplete} />
-          ) : (
-            <MeetingRoom />
-          )}
+
+        {!isSetupComplete ? (
+          <MeetingSetup setisSetupComplete={setIsSetupComplete} />
+        ) : (
+          <MeetingRoom />
+        )}
         </StreamTheme>
       </StreamCall>
     </main>
   );
 };
 
-export default Meeting;
+export default MeetingPage;

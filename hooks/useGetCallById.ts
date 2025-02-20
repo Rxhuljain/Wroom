@@ -1,28 +1,39 @@
-import { useEffect, useState } from 'react';
-import { Call, useStreamVideoClient } from '@stream-io/video-react-sdk';
+import { useState, useEffect } from 'react';
+import { useStreamVideoClient, Call } from '@stream-io/video-react-sdk';
 
-export const useGetCallById = (id: string | string[]) => {
-  const [call, setCall] = useState<Call>();
-  const [isCallLoading, setIsCallLoading] = useState(true);
-
+export const useGetCallById = (id: string) => {
   const client = useStreamVideoClient();
+  const [call, setCall] = useState<Call | null>(null);
+  const [isCallLoading, setIsCallLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!client) return;
-    
-    const loadCall = async () => {
-
-        const { calls } = await client.queryCalls({ filter_conditions: { id } });
-
-        if (calls.length > 0) setCall(calls[0]);
-
+    const fetchCall = async () => {
+      if (!id) {
+        setError("Invalid call ID");
         setIsCallLoading(false);
+        return;
+      }
 
-      
+      if (!client) {
+        console.warn("Stream client is not initialized yet.");
+        return; // Wait for client to be available
+      }
+
+      try {
+        const call = client.call('default', id);
+        await call.getOrCreate();
+        setCall(call);
+      } catch (err) {
+        console.error("Error fetching call:", err);
+        setError("Failed to load call");
+      } finally {
+        setIsCallLoading(false);
+      }
     };
 
-    loadCall();
-  }, [client, id]);
+    fetchCall();
+  }, [id, client]);
 
-  return { call, isCallLoading };
+  return { call, isCallLoading, error };
 };
