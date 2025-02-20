@@ -1,30 +1,32 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { clerkMiddleware } from '@clerk/nextjs/server';
+import { NextResponse } from 'next/server';
 
-const protectedRoutes = createRouteMatcher([
-  '/',
-  '/upcoming',
-  
-  '/previous',
-  '/recordings',
-  '/personal-room',
-  '/meeting(.*)'
-]);
-
-
-
-const isPublicRoute = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)'])
+// Define public routes that don't require authentication
+const publicRoutes = ['/sign-in', '/sign-up', '/login'];
 
 export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request)) {
-    await auth.protect()
-  }
-})
+  try {
+    // Safeguard against undefined nextUrl
+    if (!request.nextUrl) {
+      return NextResponse.next();
+    }
 
+    // Check if the current route is public
+    const isPublicRoute = publicRoutes.some(route =>
+      request.nextUrl.pathname.startsWith(route)
+    );
+
+    // Protect non-public routes
+    if (!isPublicRoute) {
+      await auth.protect();
+    }
+  } catch (error) {
+    console.error('Middleware error:', error);
+    return NextResponse.error();
+  }
+});
+
+// Optional: Export the config to match only specific paths
 export const config = {
-  matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    // Always run for API routes
-    '/(api|trpc)(.*)',
-  ],
-}
+  matcher: ['/((?!.*\\..*|_next).*)'], // Exclude static files and _next directory
+};
