@@ -21,6 +21,9 @@ const now = new Date();
 
       </div>
       <MeetingTypeList/>
+      <footer className='text-center mt-10'>
+        <p>Developed by Kshitij Tater❤️</p>
+      </footer>
       </section>
   )
 }
